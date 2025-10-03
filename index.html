@@ -4,24 +4,34 @@
 <meta charset="utf-8">
 <title>فهرس السور - مصحف المدينة</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/quran-fonts/fonts/KFGQPC-Uthmanic-Script-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-:root{--bg:#fdfdfd; --txt:#222; --accent:#064;}
-body.dark{--bg:#121212; --txt:#e5e5e5;}
-*{box-sizing:border-box; margin:0; padding:0; font-family:'Tahoma',sans-serif}
+@font-face{
+  font-family:'KFGQPC';
+  src:url('https://cdn.jsdelivr.net/npm/quran-fonts/fonts/KFGQPC-Uthmanic-Script-Regular.woff2') format('woff2');
+}
+:root{--bg:#fdfdfd; --txt:#222; --accent:#064; --card:#fff;}
+body.dark{--bg:#121212; --txt:#e5e5e5; --card:#1e1e1e;}
+*{box-sizing:border-box; margin:0; padding:0; font-family:'KFGQPC','Traditional Arabic',serif}
 body{background:var(--bg); color:var(--txt); transition:.25s}
-header{position:sticky; top:0; background:var(--accent); color:#fff; padding:12px 16px; display:flex; justify-content:space-between}
+header{position:sticky; top:0; background:var(--accent); color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between}
+header input{flex:1; max-width:300px; margin:0 12px; padding:8px 10px; border:none; border-radius:4px; font-size:1rem}
+header button{background:none; border:none; color:#fff; font-size:1.3rem; cursor:pointer}
 #list{display:grid; gap:10px; padding:16px}
-.surah-item{background:#fff5; padding:10px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between}
+.surah-item{background:var(--card); padding:12px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:.2s}
 body.dark .surah-item{background:#ffffff0d}
 .surah-item:hover{background:#0001}
-.num{color:var(--accent); font-weight:bold}
+.surah-item .num{color:var(--accent); font-weight:bold}
 </style>
 </head>
 <body>
+
 <header>
-  <h1>فهرس السور (مصحف المدينة)</h1>
+  <h1>فهرس السور</h1>
+  <input id="search" placeholder="ابحث عن سورة...">
   <button id="toggleDark" title="الوضع الليلي">🌙</button>
 </header>
+
 <div id="list"></div>
 
 <script>
@@ -143,6 +153,11 @@ const suwar=[
 {no:114,name:"الناس",verses:6}
 ];
 
+const list=document.getElementById('list');
+const search=document.getElementById('search');
+const toggleDark=document.getElementById('toggleDark');
+
+/* تعبئة القائمة */
 suwar.forEach(s=>{
   const d=document.createElement('div');
   d.className='surah-item';
@@ -151,6 +166,15 @@ suwar.forEach(s=>{
   list.appendChild(d);
 });
 
+/* بحث فوري */
+search.oninput=()=>{
+  const q=search.value.trim();
+  [...list.children].forEach(item=>{
+    item.style.display=item.textContent.includes(q)?'':'none';
+  });
+};
+
+/* وضع ليلي */
 toggleDark.onclick=()=>{
   document.body.classList.toggle('dark');
   localStorage.dark=document.body.classList.contains('dark');
