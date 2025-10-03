@@ -2,12 +2,12 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>القرآن الكريم - مصحف المدينة</title>
+<title>مصحف المدينة - متكامل</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- خط مصحف المدينة -->
+<!-- خط المصحف -->
 <link rel="preload" href="https://cdn.jsdelivr.net/npm/quran-fonts/fonts/KFGQPC-Uthmanic-Script-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-/* ========== أنماط الخطّ والمحاذاة ========== */
+/* ========== الخطّ والألوان ========== */
 @font-face{
   font-family:'KFGQPC';
   src:url('https://cdn.jsdelivr.net/npm/quran-fonts/fonts/KFGQPC-Uthmanic-Script-Regular.woff2') format('woff2');
@@ -29,36 +29,28 @@ header{
 header button{background:var(--accent); color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer}
 #surahName{font-size:1.6rem; font-weight:bold; color:var(--accent)}
 
-/* ========== بنية الصفحة ========== */
-.page{ /* كل صفحة = div */
-  min-height:90vh; display:flex; flex-direction:column; justify-content:center;
-  padding:20px 0;
-  border-bottom:1px dashed #9993; /* فاصل بصري فقط */
-  page-break-after:always; /* عند الطباعة */
-}
-.page-head{
-  text-align:center; font-size:14px; color:var(--accent); margin-bottom:12px;
-}
+/* ========== الصفحة ========== */
+.page{min-height:90vh; display:flex; flex-direction:column; justify-content:center; padding:20px 0; page-break-after:always}
+.page-head{text-align:center; font-size:14px; color:var(--accent); margin-bottom:12px}
 
 /* ========== الآية ========== */
-.aya-block{ /* كل آية داخل صفحتها */
+.aya-block{
   font-size:32px; line-height:2.4;
-  text-align:center; /* توسيط أفقي */
-  white-space:pre-wrap; /* يحافظ على المسافات العثمانية */
-  position:relative;
+  text-align:center; white-space:pre-wrap;
+  cursor:pointer; user-select:none;
 }
-/* رقم الآية داخل النص (في موضعه الصحيح) */
+.aya-block:hover{background:#0001}
+/* رقم الآية داخل النص (موضع العلامة ۝) */
 .aya-block .num{
   display:inline-block; position:relative; top:-10px;
   font-size:18px; color:var(--accent); margin:0 4px;
 }
 
 /* ========== طباعة ========== */
-@media print{
-  body{padding:0}
-  header{display:none}
-  .page{border:none}
-}
+@media print{body{padding:0} header{display:none} .page{border:none}}
+
+/* ========== شريط تحميل صغير ========== */
+#loader{position:fixed; inset:0; background:#0008; color:#fff; display:grid; place-content:center; font-size:1.2rem}
 </style>
 </head>
 <body>
@@ -73,7 +65,10 @@ header button{background:var(--accent); color:#fff; border:none; padding:6px 10p
   </span>
 </header>
 
-<!-- الحاوي الذي تُبنى فيه الصفحات -->
+<!-- شريط تحميل أولي -->
+<div id="loader">جاري التحميل...</div>
+
+<!-- الحاوي -->
 <div id="pages"></div>
 
 <script>
@@ -83,68 +78,71 @@ const surahNo=params.get('s');
 const surahName=decodeURIComponent(params.get('n')||'');
 document.getElementById('surahName').textContent=surahName;
 
-/* ========== قاعدة بيانات مؤقتة (IndexedDB) ========== */
-const DB_NAME='QuranMadina',STORE_NAME='pages',VER=1;
-let db;
-async function openDB(){
-  return new Promise((res,rej)=>{
-    const r=indexedDB.open(DB_NAME,VER);
-    r.onupgradeneeded=()=>{r.result.createObjectStore(STORE_NAME,{keyPath:'page'})};
-    r.onsuccess=()=>{db=r.result; res()};
-    r.onerror=()=>rej(r.error);
+/* ========== Service Worker لتخزين الصوتيات والنصوص ========== */
+if('serviceWorker' in navigator){
+  const sw=`
+  const CACHE='quran-v1';
+  const URLs=[
+    '/',
+    'https://cdn.jsdelivr.net/npm/quran-fonts/fonts/KFGQPC-Uthmanic-Script-Regular.woff2',
+    'https://cdn.jsdelivr.net/npm/quran-json@3/quran.json'
+  ];
+  self.addEventListener('install',e=>{
+    e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLs)));
   });
+  self.addEventListener('fetch',e=>{
+    e.respondWith(
+      caches.match(e.request).then(r=>r||fetch(e.request))
+    );
+  });`;
+  const blob=new Blob([sw],{type:'text/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob));
 }
 
-/* ========== جلب/تخزين بيانات الصفحات ========== */
-async function fetchPages(){
-  /* نستخدم مصدراً مجانياً يعطي الآيات مع أرقام الصفحات */
-  const url=`https://raw.githubusercontent.com/semarketir/quranjson/master/source/pages.json`;
-  const r=await fetch(url);
-  const allPages=await r.json(); // { "1": [ {aya} , ... ], "2": [...], ... }
-  const tx=db.transaction(STORE_NAME,'readwrite');
-  const st=tx.objectStore(STORE_NAME);
-  for(const[p,ayas] of Object.entries(allPages)) st.put({page:p,ayas});
-  return allPages;
-}
-async function getPage(p){
-  const tx=db.transaction(STORE_NAME,'readonly');
-  const st=tx.objectStore(STORE_NAME);
-  return st.get(p);
+/* ========== جلب بيانات السورة + الصفحات ========== */
+async function getData(){
+  // نستخدم ملف JSON جاهز يحوي: النص العثماني + رقم الصفحة + رقم الآية
+  const res=await fetch('https://cdn.jsdelivr.net/npm/quran-json@3/quran.json');
+  const quran=await res.json(); // مصفوفة من الآيات
+  return quran.filter(a=>a.surah==surahNo);
 }
 
-/* ========== بناء العرض ========== */
-async function build(){
-  await openDB();
-  let pages=await fetchPages(); // أول مرة
-  // نحتاج فقط صفحات السورة الحالية
-  const surahPages=new Map();
-  for(const[pg,ayas] of Object.entries(pages)){
-    for(const a of ayas){
-      if(a.surah==surahNo){
-        if(!surahPages.has(pg)) surahPages.set(pg,[]);
-        surahPages.get(pg).push(a);
-      }
-    }
-  }
+/* ========== بناء DOM ========== */
+async function buildPages(){
+  const ayas=await getData();
   const pagesContainer=document.getElementById('pages');
   pagesContainer.innerHTML='';
-  for(const[pg,ayas] of [...surahPages.entries()].sort((a,b)=>a[0]-b[0])){
-    const pageDiv=document.createElement('div');
-    pageDiv.className='page';
-    pageDiv.innerHTML=`<div class="page-head">صفحة ${pg}</div>`;
-    ayas.forEach(a=>{
-      const div=document.createElement('div');
-      div.className='aya-block';
-      /* نضع رقم الآية داخل النص في موضعه الصحيح */
-      const text=a.text.replace(/۝/g,`<span class="num">${a.ayah}</span>`);
-      div.innerHTML=text;
-      pageDiv.appendChild(div);
-    });
-    pagesContainer.appendChild(pageDiv);
-  }
+
+  let currentPage=null, pageDiv=null;
+  ayas.forEach(a=>{
+    if(a.page!==currentPage){
+      currentPage=a.page;
+      pageDiv=document.createElement('div');
+      pageDiv.className='page';
+      pageDiv.innerHTML=`<div class="page-head">صفحة ${currentPage}</div>`;
+      pagesContainer.appendChild(pageDiv);
+    }
+    const div=document.createElement('div');
+    div.className='aya-block';
+    /* نضع الرقم داخل النص مكان العلامة ۝ */
+    const text=a.uthmani.replace(/۝/g,`<span class="num">${a.ayah}</span>`);
+    div.innerHTML=text;
+    /* تشغيل الصوت عند النقر */
+    div.onclick=()=>playAya(a.surah,a.ayah);
+    pageDiv.appendChild(div);
+  });
   localStorage.last=`${surahNo},${surahName}`;
+  document.getElementById('loader').style.display='none';
 }
-build();
+buildPages();
+
+/* ========== تشغيل الصوت ========== */
+function playAya(s,a){
+  const audio=new Audio();
+  // مقطع صوتي واحد لكل آية (قارئ مشاري العفاسي - 128kbps)
+  audio.src=`https://everyayah.com/data/Alafasy_128kbps/${s.toString().padStart(3,'0')}${a.toString().padStart(3,'0')}.mp3`;
+  audio.play().catch(()=>alert('تعذّر تشغيل المقطع، تحقق من الاتصال أول مرة.'));
+}
 
 /* ========== أدوات مساعدة ========== */
 toggleDark.onclick=()=>{
