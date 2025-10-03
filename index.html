@@ -2,29 +2,30 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>فهرس السور</title>
+<title>فهرس السور - مصحف المدينة</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-:root{--bg:#f5f5f5; --txt:#222; --card:#fff; --accent:#064;}
-body.dark{--bg:#121212; --txt:#e5e5e5; --card:#1e1e1e;}
+:root{--bg:#fdfdfd; --txt:#222; --accent:#064;}
+body.dark{--bg:#121212; --txt:#e5e5e5;}
 *{box-sizing:border-box; margin:0; padding:0; font-family:'Tahoma',sans-serif}
 body{background:var(--bg); color:var(--txt); transition:.25s}
-header{position:sticky; top:0; background:var(--accent); color:#fff; padding:14px 16px; display:flex; align-items:center; justify-content:space-between}
+header{position:sticky; top:0; background:var(--accent); color:#fff; padding:12px 16px; display:flex; justify-content:space-between}
 #list{display:grid; gap:10px; padding:16px}
-.surah-item{background:var(--card); padding:12px; border-radius:6px; cursor:pointer; transition:.2s; display:flex; justify-content:space-between; align-items:center}
+.surah-item{background:#fff5; padding:10px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between}
+body.dark .surah-item{background:#ffffff0d}
 .surah-item:hover{background:#0001}
-.surah-item .num{color:var(--accent); font-weight:bold}
+.num{color:var(--accent); font-weight:bold}
 </style>
 </head>
 <body>
 <header>
-  <h1>فهرس السور</h1>
+  <h1>فهرس السور (مصحف المدينة)</h1>
   <button id="toggleDark" title="الوضع الليلي">🌙</button>
 </header>
-
 <div id="list"></div>
 
 <script>
+/* بيانات السور (114 سورة) */
 const suwar=[
 {no:1,name:"الفاتحة",verses:7},
 {no:2,name:"البقرة",verses:286},
