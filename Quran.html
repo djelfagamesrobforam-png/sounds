@@ -2,20 +2,53 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>القرآن الكريم</title>
+<title>القرآن الكريم - مصحف المدينة</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-:root{--bg:#fdfdfd; --txt:#222; --card:#fff; --accent:#064;}
-body.dark{--bg:#121212; --txt:#e5e5e5; --card:#1e1e1e;}
-*{box-sizing:border-box; margin:0; padding:0; font-family:'Tahoma',sans-serif}
-body{background:var(--bg); color:var(--txt); transition:.25s; padding:15px;}
-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px}
+/* ========== أنماط أساسية ========== */
+:root{
+  --bg:#fdfdfd; --txt:#222; --accent:#064;
+  --line:42px; /* ارتفاع السطر الواحد */
+}
+body.dark{--bg:#121212; --txt:#e5e5e5;}
+*{box-sizing:border-box; margin:0; padding:0}
+body{
+  font-family:'KFGQPC Uthman Taha Naskh','Traditional Arabic',serif;
+  background:var(--bg); color:var(--txt);
+  transition:.25s; padding:15px;
+}
+header{
+  position:sticky; top:0; z-index:10;
+  background:var(--bg); border-bottom:1px solid #7777;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 0;
+}
 header button{background:var(--accent); color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer}
 #surahName{font-size:1.4rem; font-weight:bold; color:var(--accent)}
-#ayahs{font-size:1.5rem; line-height:2.4; white-space:pre-wrap}
-.aya{background:var(--card); padding:6px 10px; margin:6px 0; border-radius:4px; display:flex; align-items:center}
-.aya .num{background:var(--accent); color:#fff; min-width:32px; height:32px; border-radius:50%; display:grid; place-content:center; margin-left:10px; font-size:.9rem}
-@media print{header{display:none}}
+
+/* ========== طباعة الآيات ========== */
+.page{ /* كل صفحة تمثل div */
+  min-height:calc(var(--line)*15); /* 15 سطر تقريباً */
+  display:flex; flex-direction:column; justify-content:center;
+  padding:20px 0;
+  border-bottom:1px dashed #9993; /* فاصل بصري فقط */
+}
+.aya-line{ /* السطر الذي يحوي الآية */
+  font-size:28px; line-height:var(--line);
+  text-align:center; /* توسيط كما في المصحف */
+  white-space:pre-wrap;
+}
+.aya-line .num{ /* رقم الآية صغير في أول السطر */
+  display:inline-block; transform:translateY(-8px);
+  font-size:14px; color:var(--accent); margin-left:6px;
+}
+
+/* ========== طباعة ========== */
+@media print{
+  body{padding:0}
+  header{display:none}
+  .page{page-break-after:always; border:none}
+}
 </style>
 </head>
 <body>
@@ -24,50 +57,84 @@ header button{background:var(--accent); color:#fff; border:none; padding:6px 10p
   <button onclick="location.href='index.html'">← فهرس السور</button>
   <span id="surahName"></span>
   <span>
-    <button onclick="copyAyahs()" title="نسخ الآيات">📋</button>
+    <button onclick="copyText()" title="نسخ">📋</button>
     <button onclick="window.print()" title="طباعة">🖨</button>
     <button id="toggleDark" title="الوضع الليلي">🌙</button>
   </span>
 </header>
 
-<div id="ayahs">... جاري التحميل</div>
+<!-- سيتم تعبئة الآيات داخل هذا الحاوي -->
+<div id="pages"></div>
 
 <script>
-/* استخراج رقم السورة واسمها من الـ Query String */
+/* ========== استخراج السورة من الـ Query String ========== */
 const params=new URLSearchParams(location.search);
 const surahNo=params.get('s');
 const surahName=decodeURIComponent(params.get('n')||'');
-
 document.getElementById('surahName').textContent=surahName;
 
-/* جلب الآيات */
-async function loadAyahs(){
+/* ========== جلب البيانات ========== */
+async function buildPages(){
   const res=await fetch(`https://api.alquran.cloud/v1/surah/${surahNo}/quran-uthmani`);
   const data=await res.json();
-  const ayat=data.data.ayahs;
-  const fr=document.createDocumentFragment();
-  ayat.forEach(a=>{
-    const d=document.createElement('div');
-    d.className='aya';
-    d.innerHTML=`<span class="num">${a.numberInSurah}</span>${a.text}`;
-    fr.appendChild(d);
+  const ayat=data.data.ayahs; // مصفوفة الآيات
+
+  /* نحتاج لمعرفة رقم الصفحة الورقية لكل آية.
+     API آخر يعطي هذه البيانات مباشرة: quran.com/api */
+  const pagesRes=await fetch(`https://api.quran.com/api/v4/verses/by_chapter/${surahNo}?words=false&per_page=300`);
+  const pagesData=await pagesRes.json();
+  /* في quran.com كل آية تحوي:
+     verse_key (مثلاً 2:25)  و  page_number */
+  const pageMap=new Map();
+  pagesData.verses.forEach(v=>{
+    const [,aya]=v.verse_key.split(':'); // رقم الآية داخل السورة
+    pageMap.set(parseInt(aya),v.page_number);
   });
-  document.getElementById('ayahs').innerHTML='';
-  document.getElementById('ayahs').appendChild(fr);
+
+  /* نبني صفحة تلو الأخرى */
+  let currentPage=null;
+  let pageDiv=null;
+  const pages=document.getElementById('pages');
+  pages.innerHTML='';
+
+  ayat.forEach(aya=>{
+    const ayaNum=aya.numberInSurah;
+    const pageNum=pageMap.get(ayaNum);
+
+    /* إذا بدأت صفحة جديدة */
+    if(pageNum!==currentPage){
+      currentPage=pageNum;
+      pageDiv=document.createElement('div');
+      pageDiv.className='page';
+      /* عنوان الصفحة (يظهر عند الطباعة) */
+      const info=document.createElement('div');
+      info.style='text-align:center;font-size:14px;color:var(--accent);margin-bottom:12px';
+      info.textContent=`صفحة ${currentPage}`;
+      pageDiv.appendChild(info);
+      pages.appendChild(pageDiv);
+    }
+
+    /* سطر الآية */
+    const line=document.createElement('div');
+    line.className='aya-line';
+    line.innerHTML=`<span class="num">${ayaNum}</span>${aya.text}`;
+    pageDiv.appendChild(line);
+  });
+
+  /* حفظ آخر موضع */
   localStorage.last=`${surahNo},${surahName}`;
 }
-loadAyahs();
+buildPages();
 
-/* وضع ليلي */
+/* ========== أدوات مساعدة ========== */
 toggleDark.onclick=()=>{
   document.body.classList.toggle('dark');
   localStorage.dark=document.body.classList.contains('dark');
 };
 if(localStorage.dark==='true') document.body.classList.add('dark');
 
-/* نسخ الآيات */
-function copyAyahs(){
-  const t=[...document.querySelectorAll('#ayahs .aya')].map(d=>d.textContent).join(' ');
+function copyText(){
+  const t=[...document.querySelectorAll('.aya-line')].map(d=>d.textContent).join('\n');
   navigator.clipboard.writeText(t);
   alert('تم نسخ الآيات!');
 }
