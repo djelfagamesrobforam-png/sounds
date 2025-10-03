@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>فهرس السور</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#f5f5f5; --txt:#222; --card:#fff; --accent:#064;}
+body.dark{--bg:#121212; --txt:#e5e5e5; --card:#1e1e1e;}
+*{box-sizing:border-box; margin:0; padding:0; font-family:'Tahoma',sans-serif}
+body{background:var(--bg); color:var(--txt); transition:.25s}
+header{position:sticky; top:0; background:var(--accent); color:#fff; padding:14px 16px; display:flex; align-items:center; justify-content:space-between}
+#list{display:grid; gap:10px; padding:16px}
+.surah-item{background:var(--card); padding:12px; border-radius:6px; cursor:pointer; transition:.2s; display:flex; justify-content:space-between; align-items:center}
+.surah-item:hover{background:#0001}
+.surah-item .num{color:var(--accent); font-weight:bold}
+</style>
+</head>
+<body>
+<header>
+  <h1>فهرس السور</h1>
+  <button id="toggleDark" title="الوضع الليلي">🌙</button>
+</header>
+
+<div id="list"></div>
+
+<script>
+const suwar=[
+{no:1,name:"الفاتحة",verses:7},
+{no:2,name:"البقرة",verses:286},
+{no:3,name:"آل عمران",verses:200},
+{no:4,name:"النساء",verses:176},
+{no:5,name:"المائدة",verses:120},
+{no:6,name:"الأنعام",verses:165},
+{no:7,name:"الأعراف",verses:206},
+{no:8,name:"الأنفال",verses:75},
+{no:9,name:"التوبة",verses:129},
+{no:10,name:"يونس",verses:109},
+{no:11,name:"هود",verses:123},
+{no:12,name:"يوسف",verses:111},
+{no:13,name:"الرعد",verses:43},
+{no:14,name:"إبراهيم",verses:52},
+{no:15,name:"الحجر",verses:99},
+{no:16,name:"النحل",verses:128},
+{no:17,name:"الإسراء",verses:111},
+{no:18,name:"الكهف",verses:110},
+{no:19,name:"مريم",verses:98},
+{no:20,name:"طه",verses:135},
+{no:21,name:"الأنبياء",verses:112},
+{no:22,name:"الحج",verses:78},
+{no:23,name:"المؤمنون",verses:118},
+{no:24,name:"النور",verses:64},
+{no:25,name:"الفرقان",verses:77},
+{no:26,name:"الشعراء",verses:227},
+{no:27,name:"النمل",verses:93},
+{no:28,name:"القصص",verses:88},
+{no:29,name:"العنكبوت",verses:69},
+{no:30,name:"الروم",verses:60},
+{no:31,name:"لقمان",verses:34},
+{no:32,name:"السجدة",verses:30},
+{no:33,name:"الأحزاب",verses:73},
+{no:34,name:"سبأ",verses:54},
+{no:35,name:"فاطر",verses:45},
+{no:36,name:"يس",verses:83},
+{no:37,name:"الصافات",verses:182},
+{no:38,name:"ص",verses:88},
+{no:39,name:"الزمر",verses:75},
+{no:40,name:"غافر",verses:85},
+{no:41,name:"فصلت",verses:54},
+{no:42,name:"الشورى",verses:53},
+{no:43,name:"الزخرف",verses:89},
+{no:44,name:"الدخان",verses:59},
+{no:45,name:"الجاثية",verses:37},
+{no:46,name:"الأحقاف",verses:35},
+{no:47,name:"محمد",verses:38},
+{no:48,name:"الفتح",verses:29},
+{no:49,name:"الحجرات",verses:18},
+{no:50,name:"ق",verses:45},
+{no:51,name:"الذاريات",verses:60},
+{no:52,name:"الطور",verses:49},
+{no:53,name:"النجم",verses:62},
+{no:54,name:"القمر",verses:55},
+{no:55,name:"الرحمن",verses:78},
+{no:56,name:"الواقعة",verses:96},
+{no:57,name:"الحديد",verses:29},
+{no:58,name:"المجادلة",verses:22},
+{no:59,name:"الحشر",verses:24},
+{no:60,name:"الممتحنة",verses:13},
+{no:61,name:"الصف",verses:14},
+{no:62,name:"الجمعة",verses:11},
+{no:63,name:"المنافقون",verses:11},
+{no:64,name:"التغابن",verses:18},
+{no:65,name:"الطلاق",verses:12},
+{no:66,name:"التحريم",verses:12},
+{no:67,name:"الملك",verses:30},
+{no:68,name:"القلم",verses:52},
+{no:69,name:"الحاقة",verses:52},
+{no:70,name:"المعارج",verses:44},
+{no:71,name:"نوح",verses:28},
+{no:72,name:"الجن",verses:28},
+{no:73,name:"المزمل",verses:20},
+{no:74,name:"المدثر",verses:56},
+{no:75,name:"القيامة",verses:40},
+{no:76,name:"الإنسان",verses:31},
+{no:77,name:"المرسلات",verses:50},
+{no:78,name:"النبأ",verses:40},
+{no:79,name:"النازعات",verses:46},
+{no:80,name:"عبس",verses:42},
+{no:81,name:"التكوير",verses:29},
+{no:82,name:"الانفطار",verses:19},
+{no:83,name:"المطففين",verses:36},
+{no:84,name:"الانشقاق",verses:25},
+{no:85,name:"البروج",verses:22},
+{no:86,name:"الطارق",verses:17},
+{no:87,name:"الأعلى",verses:19},
+{no:88,name:"الغاشية",verses:26},
+{no:89,name:"الفجر",verses:30},
+{no:90,name:"البلد",verses:20},
+{no:91,name:"الشمس",verses:15},
+{no:92,name:"الليل",verses:21},
+{no:93,name:"الضحى",verses:11},
+{no:94,name:"الشرح",verses:8},
+{no:95,name:"التين",verses:8},
+{no:96,name:"العلق",verses:19},
+{no:97,name:"القدر",verses:5},
+{no:98,name:"البينة",verses:8},
+{no:99,name:"الزلزلة",verses:8},
+{no:100,name:"العاديات",verses:11},
+{no:101,name:"القارعة",verses:11},
+{no:102,name:"التكاثر",verses:8},
+{no:103,name:"العصر",verses:3},
+{no:104,name:"الهمزة",verses:9},
+{no:105,name:"الفيل",verses:5},
+{no:106,name:"قريش",verses:4},
+{no:107,name:"الماعون",verses:7},
+{no:108,name:"الكوثر",verses:3},
+{no:109,name:"الكافرون",verses:6},
+{no:110,name:"النصر",verses:3},
+{no:111,name:"المسد",verses:5},
+{no:112,name:"الإخلاص",verses:4},
+{no:113,name:"الفلق",verses:5},
+{no:114,name:"الناس",verses:6}
+];
+
+suwar.forEach(s=>{
+  const d=document.createElement('div');
+  d.className='surah-item';
+  d.innerHTML=`<span>${s.no}. ${s.name}</span><span class="num">${s.verses} آية</span>`;
+  d.onclick=()=>location.href=`Quran.html?s=${s.no}&n=${encodeURIComponent(s.name)}`;
+  list.appendChild(d);
+});
+
+toggleDark.onclick=()=>{
+  document.body.classList.toggle('dark');
+  localStorage.dark=document.body.classList.contains('dark');
+};
+if(localStorage.dark==='true') document.body.classList.add('dark');
+</script>
+</body>
+</html>
