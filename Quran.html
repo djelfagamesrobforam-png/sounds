@@ -2,12 +2,10 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>مصحف المدينة - متكامل</title>
+<title>مصحف المدينة - صوتي</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- خط المصحف -->
 <link rel="preload" href="https://cdn.jsdelivr.net/npm/quran-fonts/fonts/KFGQPC-Uthmanic-Script-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-/* ========== الخطّ والألوان ========== */
 @font-face{
   font-family:'KFGQPC';
   src:url('https://cdn.jsdelivr.net/npm/quran-fonts/fonts/KFGQPC-Uthmanic-Script-Regular.woff2') format('woff2');
@@ -20,37 +18,16 @@ body{
   background:var(--bg); color:var(--txt);
   transition:.25s; padding:15px;
 }
-header{
-  position:sticky; top:0; z-index:10;
-  background:var(--bg); border-bottom:1px solid #7775;
-  display:flex; align-items:center; justify-content:space-between;
-  padding:8px 0;
-}
+header{position:sticky; top:0; z-index:10; background:var(--bg); border-bottom:1px solid #7775; display:flex; align-items:center; justify-content:space-between; padding:8px 0;}
 header button{background:var(--accent); color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer}
 #surahName{font-size:1.6rem; font-weight:bold; color:var(--accent)}
-
-/* ========== الصفحة ========== */
 .page{min-height:90vh; display:flex; flex-direction:column; justify-content:center; padding:20px 0; page-break-after:always}
 .page-head{text-align:center; font-size:14px; color:var(--accent); margin-bottom:12px}
-
-/* ========== الآية ========== */
-.aya-block{
-  font-size:32px; line-height:2.4;
-  text-align:center; white-space:pre-wrap;
-  cursor:pointer; user-select:none;
-}
+.aya-block{font-size:32px; line-height:2.4; text-align:center; white-space:pre-wrap; cursor:pointer; user-select:none}
 .aya-block:hover{background:#0001}
-/* رقم الآية داخل النص (موضع العلامة ۝) */
-.aya-block .num{
-  display:inline-block; position:relative; top:-10px;
-  font-size:18px; color:var(--accent); margin:0 4px;
-}
-
-/* ========== طباعة ========== */
+.aya-block .num{display:inline-block; position:relative; top:-10px; font-size:18px; color:var(--accent); margin:0 4px}
 @media print{body{padding:0} header{display:none} .page{border:none}}
-
-/* ========== شريط تحميل صغير ========== */
-#loader{position:fixed; inset:0; background:#0008; color:#fff; display:grid; place-content:center; font-size:1.2rem}
+#msg{position:fixed; inset:0; background:#0008; color:#fff; display:grid; place-content:center; font-size:1.2rem}
 </style>
 </head>
 <body>
@@ -62,59 +39,35 @@ header button{background:var(--accent); color:#fff; border:none; padding:6px 10p
     <button onclick="copyText()" title="نسخ">📋</button>
     <button onclick="window.print()" title="طباعة">🖨</button>
     <button id="toggleDark" title="الوضع الليلي">🌙</button>
+    <button onclick="preloadAudio()" title="تحميل مقاطع السورة">🔽</button>
   </span>
 </header>
 
-<!-- شريط تحميل أولي -->
-<div id="loader">جاري التحميل...</div>
-
-<!-- الحاوي -->
 <div id="pages"></div>
+<div id="msg" style="display:none"></div>
 
 <script>
-/* ========== معلومات السورة ========== */
+/* ===== معلومات السورة ===== */
 const params=new URLSearchParams(location.search);
 const surahNo=params.get('s');
 const surahName=decodeURIComponent(params.get('n')||'');
 document.getElementById('surahName').textContent=surahName;
 
-/* ========== Service Worker لتخزين الصوتيات والنصوص ========== */
-if('serviceWorker' in navigator){
-  const sw=`
-  const CACHE='quran-v1';
-  const URLs=[
-    '/',
-    'https://cdn.jsdelivr.net/npm/quran-fonts/fonts/KFGQPC-Uthmanic-Script-Regular.woff2',
-    'https://cdn.jsdelivr.net/npm/quran-json@3/quran.json'
-  ];
-  self.addEventListener('install',e=>{
-    e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLs)));
-  });
-  self.addEventListener('fetch',e=>{
-    e.respondWith(
-      caches.match(e.request).then(r=>r||fetch(e.request))
-    );
-  });`;
-  const blob=new Blob([sw],{type:'text/javascript'});
-  navigator.serviceWorker.register(URL.createObjectURL(blob));
-}
-
-/* ========== جلب بيانات السورة + الصفحات ========== */
-async function getData(){
-  // نستخدم ملف JSON جاهز يحوي: النص العثماني + رقم الصفحة + رقم الآية
-  const res=await fetch('https://cdn.jsdelivr.net/npm/quran-json@3/quran.json');
-  const quran=await res.json(); // مصفوفة من الآيات
+/* ===== جلب بيانات الآيات (نص + صفحة) ===== */
+async function getAyaat(){
+  const r=await fetch('https://cdn.jsdelivr.net/npm/quran-json@3/quran.json');
+  const quran=await r.json();
   return quran.filter(a=>a.surah==surahNo);
 }
 
-/* ========== بناء DOM ========== */
+/* ===== بناء الصفحات ===== */
 async function buildPages(){
-  const ayas=await getData();
+  const ayaat=await getAyaat();
   const pagesContainer=document.getElementById('pages');
   pagesContainer.innerHTML='';
 
   let currentPage=null, pageDiv=null;
-  ayas.forEach(a=>{
+  ayaat.forEach(a=>{
     if(a.page!==currentPage){
       currentPage=a.page;
       pageDiv=document.createElement('div');
@@ -127,24 +80,52 @@ async function buildPages(){
     /* نضع الرقم داخل النص مكان العلامة ۝ */
     const text=a.uthmani.replace(/۝/g,`<span class="num">${a.ayah}</span>`);
     div.innerHTML=text;
-    /* تشغيل الصوت عند النقر */
     div.onclick=()=>playAya(a.surah,a.ayah);
     pageDiv.appendChild(div);
   });
   localStorage.last=`${surahNo},${surahName}`;
-  document.getElementById('loader').style.display='none';
 }
 buildPages();
 
-/* ========== تشغيل الصوت ========== */
-function playAya(s,a){
-  const audio=new Audio();
-  // مقطع صوتي واحد لكل آية (قارئ مشاري العفاسي - 128kbps)
-  audio.src=`https://everyayah.com/data/Alafasy_128kbps/${s.toString().padStart(3,'0')}${a.toString().padStart(3,'0')}.mp3`;
-  audio.play().catch(()=>alert('تعذّر تشغيل المقطع، تحقق من الاتصال أول مرة.'));
+/* ===== تشغيل الصوت (بديل خالٍ من CORS) ===== */
+async function playAya(s,a){
+  const msg=document.getElementById('msg');
+  msg.textContent='جاري التحميل...';
+  msg.style.display='grid';
+
+  /* نستخدم مصدراً بديلاً يسمح بالطلب المباشر */
+  const url=`https://everyayah.com/data/Alafasy_128kbps/${String(s).padStart(3,'0')}${String(a).padStart(3,'0')}.mp3`;
+  const audio=new Audio(url);
+
+  audio.onerror=()=>{
+    msg.textContent='❌ فشل التحميل (قد يكون الرابط غير متاح حالياً)';
+    setTimeout(()=>msg.style.display='none',2000);
+  };
+  audio.oncanplaythrough=()=>{
+    msg.style.display='none';
+    audio.play();
+  };
+  audio.load(); // نبدأ التحميل
 }
 
-/* ========== أدوات مساعدة ========== */
+/* ===== تحميل كل مقاطع السورة (اختياري) ===== */
+async function preloadAudio(){
+  const msg=document.getElementById('msg');
+  msg.textContent='يجري تحميل مقاطع السورة، الرجاء الانتظار...';
+  msg.style.display='grid';
+  const ayaat=await getAyaat();
+  let loaded=0;
+  for(const a of ayaat){
+    const url=`https://everyayah.com/data/Alafasy_128kbps/${String(a.surah).padStart(3,'0')}${String(a.ayah).padStart(3,'0')}.mp3`;
+    await fetch(url); // نحفظها في Cache المتصفح
+    loaded++;
+    msg.textContent=`تم تحميل ${loaded} من ${ayaat.length}`;
+  }
+  msg.textContent='✅ اكتمل التحميل، يمكنك الاستماع بدون إنترنت الآن!';
+  setTimeout(()=>msg.style.display='none',2000);
+}
+
+/* ===== أدوات مساعدة ===== */
 toggleDark.onclick=()=>{
   document.body.classList.toggle('dark');
   localStorage.dark=document.body.classList.contains('dark');
