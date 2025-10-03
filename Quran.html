@@ -2,9 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>القرآن الكريم - مصحف المدينة</title>
+<title>القرآن الكريم – مصحف المدينة</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- خط مصحف المدينة -->
 <link rel="preload" href="https://cdn.jsdelivr.net/npm/quran-fonts/fonts/KFGQPC-Uthmanic-Script-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 @font-face{
@@ -28,42 +27,28 @@ header{
 header button{background:var(--accent); color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer}
 #surahName{font-size:1.6rem; font-weight:bold; color:var(--accent)}
 
-/* ======== الصفحة ======== */
 .page{
   min-height:calc(var(--line)*15);
   display:flex; flex-direction:column; justify-content:center;
   padding:20px 0; margin:10px 0;
   page-break-after:always;
-  border:1px solid #ddd; /* إطار خفيف كالكتاب */
-  border-radius:8px;
-  background:var(--bg);
+  border:1px solid #ddd; border-radius:8px; background:var(--bg);
 }
-.page-head{
-  text-align:center; font-size:14px; color:var(--accent); margin-bottom:12px;
-}
+.page-head{text-align:center; font-size:14px; color:var(--accent); margin-bottom:12px;}
 
-/* ======== الآية ======== */
 .aya-line{
   font-size:32px; line-height:var(--line);
   text-align:center; white-space:pre-wrap;
-  cursor:pointer; user-select:none;
-  padding:2px 0;
+  cursor:pointer; user-select:none; padding:2px 0;
 }
 .aya-line:hover{background:#0001}
-/* رقم الآية داخل النص (موضع العلامة ۝) */
 .aya-line .num{
   display:inline-block; position:relative; top:-10px;
   font-size:18px; color:var(--accent); margin:0 4px;
 }
 
-/* ======== طباعة ======== */
-@media print{
-  body{padding:0}
-  header{display:none}
-  .page{border:none; border-radius:0}
-}
+@media print{body{padding:0} header{display:none} .page{border:none; border-radius:0}}
 
-/* ======== رسائل عامة ======== */
 #msg{position:fixed; inset:0; background:#0008; color:#fff; display:grid; place-content:center; font-size:1.2rem; z-index:100}
 </style>
 </head>
@@ -89,24 +74,23 @@ const surahNo=params.get('s');
 const surahName=decodeURIComponent(params.get('n')||'');
 document.getElementById('surahName').textContent=surahName;
 
-/* ===== جلب بيانات السورة ===== */
+/* ===== استدعاء بيانات الآيات (نص + صفحة) ===== */
 async function getSurahData(){
   try {
-    // جلب الآيات مع أرقام الصفحات
-    const res=await fetch(`https://api.quran.com/api/v4/verses/by_chapter/${surahNo}?words=false&per_page=300`);
-    const data=await res.json();
+    // 1) نص عثماني + رقم الصفحة لكل آية
+    const r=await fetch(`https://api.quran.com/api/v4/verses/by_chapter/${surahNo}?words=false&per_page=300`);
+    const data=await r.json();
     return data.verses;
   } catch(e){
-    showMsg('❌ فشل الاتصال بالخادم');
+    showMsg('❌ فشل تحميل الآيات');
     return [];
   }
 }
-
-/* ===== جلب النص العثماني ===== */
 async function getUthmaniText(){
   try {
-    const res=await fetch(`https://api.quran.com/api/v4/quran/verses/uthmani?chapter_number=${surahNo}`);
-    const data=await res.json();
+    // 2) النص العثماني فقط
+    const r=await fetch(`https://api.quran.com/api/v4/quran/verses/uthmani?chapter_number=${surahNo}`);
+    const data=await r.json();
     return data.verses;
   } catch(e){
     showMsg('❌ فشل تحميل النص العثماني');
@@ -118,14 +102,12 @@ async function getUthmaniText(){
 async function buildPages(){
   const verses=await getSurahData();
   const uthmani=await getUthmaniText();
-  
   if(!verses.length || !uthmani.length) return;
 
   const pagesContainer=document.getElementById('pages');
   pagesContainer.innerHTML='';
 
-  let currentPage=null;
-  let pageDiv=null;
+  let currentPage=null, pageDiv=null;
 
   for(let i=0;i<verses.length;i++){
     const v=verses[i];
@@ -144,23 +126,21 @@ async function buildPages(){
 
     const div=document.createElement('div');
     div.className='aya-line';
-    /* نضع الرقم داخل النص مكان العلامة ۝ */
+    // نضع الرقم داخل النص مكان العلامة ۝
     const finalText=text.replace(/۝/g,`<span class="num">${ayaNum}</span>`);
     div.innerHTML=finalText;
     div.onclick=()=>playAya(surahNo,ayaNum);
     pageDiv.appendChild(div);
   }
-
-  localStorage.last=`${surahNo},${surahName}`;
 }
 buildPages();
 
-/* ===== تشغيل الصوت ===== */
-async function playAya(s,a){
+/* ===== تشغيل الصوت (إن وُجد) ===== */
+function playAya(s,a){
   showMsg('جاري التحميل...');
   const url=`https://everyayah.com/data/Alafasy_128kbps/${String(s).padStart(3,'0')}${String(a).padStart(3,'0')}.mp3`;
   const audio=new Audio(url);
-  audio.onerror=()=>{showMsg('❌ فشل التحميل (قد يكون الرابط غير متاح)'); setTimeout(()=>hideMsg(),2000);};
+  audio.onerror=()=>{hideMsg(); /* لا نعرض خطأ، نصمت فقط */};
   audio.oncanplaythrough=()=>{hideMsg(); audio.play();};
   audio.load();
 }
